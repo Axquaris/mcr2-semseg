@@ -19,14 +19,16 @@ def get_mnist_semseg():
     layers.append(nn.ReLU())
 
     encoder = nn.Sequential(*layers)
-    return CNN(encoder)
+    return CNN(encoder, 11)
 
 
 class CNN(pl.LightningModule):
-    def __init__(self, encoder):
+    def __init__(self, encoder, num_classes):
         super().__init__()
         self.encoder = encoder
-        self.criterion = MaximalCodingRateReduction()
+        self.num_classes = num_classes
+
+        self.criterion = MaximalCodingRateReduction(num_classes)
 
     def forward(self, x):
         z = self.encoder(x)
@@ -39,9 +41,9 @@ class CNN(pl.LightningModule):
         x, y = batch
         z = self(x)
 
-        feats = z.permute(1, 0, 2, 3).reshape(z.shape[0], -1)
+        feats = z.permute(1, 0, 2, 3).reshape(z.shape[1], -1)
         labels = y.reshape(-1)
-        loss = self.criterion(feats, labels, num_classes=11)
+        loss = self.criterion(feats, labels)
 
         result = pl.TrainResult(loss)
         result.log('train_loss', loss, on_epoch=True)
