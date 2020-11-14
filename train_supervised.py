@@ -1,5 +1,5 @@
 from data.mnist_semseg import MnistSS
-from models import cnn
+from models import *
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
@@ -14,6 +14,13 @@ def main():
     trainer = pl.Trainer(gpus=1, max_epochs=5)
 
     trainer.fit(model, train_dataloader)
+
+    # Nearest subspace classifier needs training (latent) features and labels to construct projections
+    clf = NearestSubpace(train_latent_features, train_lables, num_classes, n_components)
+
+    # forward takes in test (latent) features
+    test_preds = cfl(test_latent_features)
+
 
 
 if __name__ == "__main__":
