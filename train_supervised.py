@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 def main():
     train_dataset = MnistSS(train=True)
-    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
+    train_dataloader = DataLoader(train_dataset, batch_size=500, shuffle=True, num_workers=4)
     val_dataset = MnistSS(train=True)
     val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=True, num_workers=4)
 

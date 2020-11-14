@@ -19,31 +19,34 @@ def get_mnist_semseg():
     layers.append(nn.ReLU())
 
     encoder = nn.Sequential(*layers)
-    return CNN(encoder, 11)
+    return CNN(encoder, 11, 64)
 
 
 class CNN(pl.LightningModule):
-    def __init__(self, encoder, num_classes):
+    def __init__(self, encoder, num_classes, dim_z):
         super().__init__()
         self.encoder = encoder
         self.num_classes = num_classes
+        self.dim_z = dim_z
 
         self.criterion = MaximalCodingRateReduction(num_classes)
+        self.ZtPiZ = torch.zeros(num_classes, dim_z, dim_z).cuda()
 
     def forward(self, x):
         z = self.encoder(x)
         return z
 
     def training_step(self, batch, batch_idx):
-        # x shape (batch_size, C, H, W)
-        # z shape (batch_size, C, H, W)
+        # x shape (batch_size, C,     H, W)
+        # z shape (batch_size, dim_z, H, W)
         # y shape (batch_size, H, W)
         x, y = batch
-        z = self(x)
+        feats = self(x)
 
-        feats = z.permute(1, 0, 2, 3).reshape(z.shape[1], -1)
-        labels = y.reshape(-1)
-        loss = self.criterion(feats, labels)
+        Z = feats.permute(1, 0, 2, 3).reshape(feats.shape[1], -1).T
+        Y = y.reshape(-1)
+        loss, ZtPiZ = self.criterion(Z, Y)
+        self.ZtPiZ += ZtPiZ
 
         result = pl.TrainResult(loss)
         result.log('train_loss', loss, on_epoch=True)
