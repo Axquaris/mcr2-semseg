@@ -54,18 +54,26 @@ class MnistSS(torch.utils.data.Dataset):
         :param item:
         :return:
         """
-        assert not self.cifar_bg, NotImplementedError()
-
         mnist_im, label = self.mnist[item]
-        mnist_im = transforms.Resize(size=(14, 14))(mnist_im)
-        mnist_im = transforms.RandomCrop(size=(20, 20), pad_if_needed=True)(mnist_im)
+        mnist_im = transforms.Resize(size=(28, 28))(mnist_im)
+        mnist_im = transforms.RandomCrop(size=(28, 28), pad_if_needed=True)(mnist_im)
         mnist_im = transforms.ToTensor()(mnist_im)
 
         mask = mnist_im.clone()
-        mask[mask < .1] = -1  # background label
-        mask[mask >= .1] = label
+        mask[mask < .3] = -1  # background label
+        mask[mask >= .3] = label
 
-        return mnist_im, (mask + 1).type(torch.long)
+        if self.cifar_bg:
+            cifar10, _ = self.cifar10[item]
+            cifar10 = transforms.RandomCrop(size=(28, 28), pad_if_needed=True)(cifar10)
+            cifar10 = transforms.ToTensor()(cifar10)
+
+            cifar10[mask.repeat(3, 1, 1) != -1] = 0
+            im = MnistSS.norm_3c(mnist_im.repeat(3, 1, 1) + cifar10 * .5)
+        else:
+            im = MnistSS.norm_1c(mnist_im)
+
+        return im, (mask + 1).type(torch.long)
         # cifar_im = self.cifar10[item]
 
         # width_start = np.random.randint(0, 32 - size_mnist, size=(batch_size))
@@ -89,6 +97,6 @@ class MnistSS(torch.utils.data.Dataset):
 
     def __len__(self):
         if self.cifar_bg:
-            return min(self.mnist, self.cifar10, key=len)
+            return min(len(self.mnist), len(self.cifar10))
         return len(self.mnist)
 

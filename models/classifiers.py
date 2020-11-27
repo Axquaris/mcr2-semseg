@@ -3,7 +3,6 @@ import torch.nn as nn
 import numpy as np
 
 class NearestSubspace(nn.Module):
-
     def __init__(self, train_features, train_labels, num_classes, n_components=5):
         super(NearestSubspace, self).__init__()
         # All array inputs should be tensors
@@ -50,6 +49,54 @@ class NearestSubspace(nn.Module):
             grouped.append(features_i)
 
         return grouped
+
+class FastNearestSubspace(nn.Module):
+    def __init__(self, feat_cov, feat_mean, num_classes, n_components=5):
+        super(FastNearestSubspace, self).__init__()
+        # All array inputs should be tensors
+        self.num_classes = num_classes
+        self.n_components = n_components
+        self.feat_mean = feat_mean
+        self.feat_dim = feat_mean.shape[0]
+
+        self.projections = self._get_projections(feat_cov)
+
+
+    def forward(self, features):
+        """
+        Classifies features using projection matrix
+        :param features: shape (num_samples, dim_z)
+        :return:
+        """
+        features_ = features - self.feat_mean
+
+        # self.projections shape (num_classes, dim_z, dim_z)
+        # features_        shape (num_samples, dim_z)
+        residual = features_.unsqueeze(0) @ self.projections.transpose(-1, -2)
+        # residual         shape (num_samples, num_classes, dim_z)
+        scores = torch.norm(residual, p=2, dim=-1)
+        # scores           shape (num_samples, num_classes)
+        test_preds = torch.argmin(scores, dim=0)
+
+        return test_preds
+
+    def _get_projections(self, feat_cov):
+        """
+
+        :param feat_cov: Feature covariance* matricies
+            shape (num_classes, dim_z, dim_z)
+        :return: returns projection matrix penalizing other class subspace activations
+            shape (num_classes, dim_z, dim_z)
+        """
+        eigvals, eigvecs = torch.symeig(feat_cov, eigenvectors=True)
+        _, indices = torch.topk(eigvals, self.n_components)
+        top_eigvecs = []
+        for i in range(self.num_classes):  # TODO: batch this https://discuss.pytorch.org/t/batched-index-select/9115/7
+            top_eigvecs.append(torch.index_select(eigvecs[i], 1, indices[i]))
+        top_eigvecs = torch.stack(top_eigvecs)
+
+        projections = top_eigvecs @ top_eigvecs.transpose(-1, -2)
+        return torch.eye(self.feat_dim).cuda() - projections
 
 if __name__ == '__main__':
     # Simple test to make sure nothing breaks
