@@ -4,7 +4,7 @@ import wandb
 from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
-from models.resnet import ResNet18
+from models.resnet import ResNet18, ResNet10MNIST
 
 
 def to_wandb_im(x):
@@ -29,24 +29,32 @@ def get_mnist_semseg(in_c, feat_dim):
 
     return nn.Sequential(*layers)
 
-def get_mnist_resnet(in_c, feat_dim):
-    return ResNet18(in_ci=in_c, feat_dim=feat_dim)
+def get_mnist_resnet(in_c, feat_dim, depth="10"):
+    if depth == "10":
+        return ResNet10MNIST(feature_dim=feat_dim, in_c=in_c)
+    else:
+        return ResNet18(feature_dim=feat_dim, in_c=in_c)
 
 
 class CNN(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, **unused_kwargs):
         super(CNN, self).__init__()
         self.encoder = encoder
         self.num_classes = num_classes
         self.feat_dim = feat_dim
         self.loss = loss
         self.task = task
+        self.encode_arch = arch
         self.lr = lr
 
         if self.loss == 'mcr2':
             self.criterion = MaximalCodingRateReduction(num_classes)
             self.classifier = None
             self.reset_agg()
+
+        elif self.loss == 'ce' and self.task == 'classify':
+            self.criterion = nn.CrossEntropyLoss()
+            self.classifier = nn.Linear(feat_dim, num_classes)
         elif self.loss == 'ce':
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
@@ -79,9 +87,11 @@ class CNN(pl.LightningModule):
         x, labels = batch
         labels = torch.squeeze(labels)
         feats = self(x)
+
         if self.task == 'classify':
             labels, _ = labels.view(labels.shape[0], -1).max(-1)
-            feats = feats.view(*feats.shape[:-2], -1).mean(-1)
+            if self.encode_arch == 'cnn':
+                feats = feats.view(*feats.shape[:-2], -1).mean(-1)
 
         if self.loss == 'mcr2':
             Z = feats.transpose(0, 1).view(feats.shape[1], -1).T
@@ -127,4 +137,4 @@ class CNN(pl.LightningModule):
         # self.log('train_acc_epoch', self.accuracy.compute())
 
     def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr=self.lr)  # TODO LR param
+        return torch.optim.SGD(self.parameters(), lr=self.lr)

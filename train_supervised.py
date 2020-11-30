@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--es', type=int, default=10, help='num epochs (default: 10)')
     parser.add_argument('--bs', type=int, default=1000, help='batch size (default: 1000)')
 
-    parser.add_argument('--arch', type=str, default='cnn', help='')
+    parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18'], default='cnn', help='What encoder to use')
     parser.add_argument('--task', type=str, default='classify', help='semseg or classify')
     parser.add_argument('--loss', type=str, default='mcr2', help='mcr2 or ce (cross-entropy)')
     parser.add_argument('--eps', type=float, default=.5, help='mcr2 eps param')
@@ -37,16 +37,19 @@ def main():
         from models import cnn
         encoder = cnn.get_mnist_semseg(in_c=im_channels, feat_dim=args.feat_dim)
         model = cnn.CNN(encoder, 11, **args)
-    elif args.arch == 'resnet':
+    elif args.arch == 'resnet10':
         from models import cnn
-        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd)
-        model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task)
+        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd, depth="10")
+        model = cnn.CNN(encoder, 11, **args)
+    elif args.arch == 'resnet18':
+        from models import cnn
+        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd, depth="18")
+        model = cnn.CNN(encoder, 11, **args)
     else:
         raise NotImplementedError(args.model)
 
     logger = WandbLogger(project='mcr2-semseg', config=args)
     trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger)
-
     trainer.fit(model, train_dataloader)
 
 
