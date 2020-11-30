@@ -1,5 +1,10 @@
-# mcr2-semseg
+# Multi-Domain Semantic Segmentation via the Principle of Rate Reduction
 
+## Experiments & Reports
+### Segmentation Consensus
+
+
+## Scratch Space
 ```python
 def m(*d):
     n = 1

@@ -9,6 +9,7 @@ from easydict import EasyDict
 
 def main():
     parser = argparse.ArgumentParser(description='Supervised Learning')
+    parser.add_argument('--name', type=str, default=None, help='Name of run')
 
     parser.add_argument('--data', type=str, default='mnist', help='mnist or mnist_bg')
     parser.add_argument('--es', type=int, default=10, help='num epochs (default: 10)')
@@ -18,7 +19,8 @@ def main():
     parser.add_argument('--task', type=str, default='classify', help='semseg or classify')
     parser.add_argument('--loss', type=str, default='mcr2', help='mcr2 or ce (cross-entropy)')
     parser.add_argument('--eps', type=float, default=.5, help='mcr2 eps param')
-    parser.add_argument('--fd', type=int, default=128, help='dimension of feature dimension (default: 128)')
+    parser.add_argument('-fd', '--feat_dim', type=int, default=128, help='dimension of features (default: 128)')
+    parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
 
     args = EasyDict(vars(parser.parse_args()))
 
@@ -33,8 +35,8 @@ def main():
     im_channels = 1 if 'mnist' in args.data else 3
     if args.arch == 'cnn':
         from models import cnn
-        encoder = cnn.get_mnist_semseg(in_c=im_channels, feat_dim=args.fd)
-        model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task)
+        encoder = cnn.get_mnist_semseg(in_c=im_channels, feat_dim=args.feat_dim)
+        model = cnn.CNN(encoder, 11, **args)
     else:
         raise NotImplementedError(args.model)
 
