@@ -35,6 +35,10 @@ def main():
         from models import cnn
         encoder = cnn.get_mnist_semseg(in_c=im_channels, feat_dim=args.fd)
         model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task)
+    elif args.arch == 'resnet':
+        from models import cnn
+        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd)
+        model = model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task)
     else:
         raise NotImplementedError(args.model)
 
