@@ -4,6 +4,7 @@ import wandb
 from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
+from models.resnet import ResNet18
 
 
 def to_wandb_im(x):
@@ -27,6 +28,9 @@ def get_mnist_semseg(in_c, feat_dim):
     layers.append(nn.BatchNorm2d(o))
 
     return nn.Sequential(*layers)
+
+def get_mnist_resnet(in_c, feat_dim):
+    return ResNet18(in_ci=in_c, feat_dim=feat_dim)
 
 
 class CNN(pl.LightningModule):
