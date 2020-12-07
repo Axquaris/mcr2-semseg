@@ -4,7 +4,7 @@ import wandb
 from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
-from models.resnet import ResNet18, ResNet10MNIST
+from models.resnet import ResNet18
 
 
 def to_wandb_im(x):
@@ -35,7 +35,7 @@ def get_mnist_resnet(in_c, feat_dim, depth="10"):
     else:
         return ResNet18(feature_dim=feat_dim, in_c=in_c)
 
-
+# TODO: generalize this to a module which utilizes generic encoders
 class CNN(pl.LightningModule):
     def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, **unused_kwargs):
         super(CNN, self).__init__()
@@ -51,7 +51,6 @@ class CNN(pl.LightningModule):
             self.criterion = MaximalCodingRateReduction(num_classes)
             self.classifier = None
             self.reset_agg()
-
         elif self.loss == 'ce' and self.task == 'classify':
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Linear(feat_dim, num_classes)
@@ -134,7 +133,12 @@ class CNN(pl.LightningModule):
                                                   n_components=self.feat_dim // self.num_classes)
             self.reset_agg()
 
-        # self.log('train_acc_epoch', self.accuracy.compute())
+    def validation_step(self, *args, **kwargs):
+
+
+    def validation_epoch_end(self, outputs):
+        ...
+        # self.log('val_acc_epoch', self.accuracy.compute())
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=self.lr)

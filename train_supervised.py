@@ -50,6 +50,7 @@ def main():
 
     logger = WandbLogger(project='mcr2-semseg', config=args)
     trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger)
+
     trainer.fit(model, train_dataloader)
 
 

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -30,6 +31,7 @@ class BasicBlock(nn.Module):
         out += self.shortcut(x)
         out = F.relu(out)
         return out
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -63,11 +65,11 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, feature_dim=512, in_c=3, depth="10"):
+    def __init__(self, block, num_blocks, feat_dim=512, in_c=3, depth="10"):
         super(ResNet, self).__init__()
         self.depth = depth
         self.in_planes = 64
-        self.feature_dim = feature_dim
+        self.feature_dim = feat_dim
 
         self.conv1 = nn.Conv2d(in_c, 64, kernel_size=3, stride=1,
                                padding=1, bias=False)
@@ -82,7 +84,7 @@ class ResNet(nn.Module):
                 nn.Linear(512 * block.expansion, 512, bias=False),
                 nn.BatchNorm1d(512),
                 nn.ReLU(inplace=True),
-                nn.Linear(512, feature_dim, bias=True)
+                nn.Linear(512, feat_dim, bias=True)
             )
         else:
             self.layer4 = self._make_layer(block, feature_dim, num_blocks[3], stride=2)
@@ -106,7 +108,7 @@ class ResNet(nn.Module):
 
         if self.depth == "18":
             out = self.reshape(out)
-        
+
         return F.normalize(out)
 
 
