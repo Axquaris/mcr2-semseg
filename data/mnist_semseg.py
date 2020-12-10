@@ -69,7 +69,7 @@ class MnistSS(torch.utils.data.Dataset):
             cifar10 = transforms.ToTensor()(cifar10)
 
             cifar10[mask.repeat(3, 1, 1) != -1] = 0
-            im = MnistSS.norm_3c(mnist_im.repeat(3, 1, 1) + cifar10 * .5)
+            im = MnistSS.norm_3c(mnist_im.repeat(3, 1, 1) + cifar10)
         else:
             im = MnistSS.norm_1c(mnist_im)
 

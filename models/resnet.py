@@ -87,7 +87,7 @@ class ResNet(nn.Module):
                 nn.Linear(512, feat_dim, bias=True)
             )
         else:
-            self.layer4 = self._make_layer(block, feature_dim, num_blocks[3], stride=2)
+            self.layer4 = self._make_layer(block, feat_dim, num_blocks[3], stride=2)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)

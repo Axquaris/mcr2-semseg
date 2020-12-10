@@ -1,4 +1,5 @@
 from data.mnist_semseg import MnistSS
+from models import cnn
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -34,19 +35,14 @@ def main():
 
     im_channels = 1 if 'mnist' in args.data else 3
     if args.arch == 'cnn':
-        from models import cnn
         encoder = cnn.get_mnist_semseg(in_c=im_channels, feat_dim=args.feat_dim)
-        model = cnn.CNN(encoder, 11, **args)
     elif args.arch == 'resnet10':
-        from models import cnn
-        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd, depth="10")
-        model = cnn.CNN(encoder, 11, **args)
+        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="10")
     elif args.arch == 'resnet18':
-        from models import cnn
-        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd, depth="18")
-        model = cnn.CNN(encoder, 11, **args)
+        encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="18")
     else:
         raise NotImplementedError(args.model)
+    model = cnn.CNN(encoder, 11, **args)
 
     logger = WandbLogger(project='mcr2-semseg', config=args)
     trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger)
