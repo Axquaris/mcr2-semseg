@@ -79,8 +79,8 @@ class MaximalCodingRateReduction(nn.Module):
         total_loss_empi = self.gam2 * -discrim_loss_empi + compress_loss_empi
         ret = EasyDict(
             loss=total_loss_empi,
-            ZtPiZ=ZtPiZ,
-            Z_mean=Z_mean,
+            ZtPiZ=ZtPiZ.detach(),
+            Z_mean=Z_mean.detach(),
             discrim_loss=discrim_loss_empi.item(),
             compress_loss=compress_loss_empi.item()
         )
@@ -89,8 +89,8 @@ class MaximalCodingRateReduction(nn.Module):
             W = Z.T
             Pi = label_to_membership(Y.cpu().numpy(), self.num_classes)
             Pi = torch.tensor(Pi, dtype=torch.float32).cuda()
-            ret.discrim_loss_theo = self.compute_discrim_loss_theoretical(W)
-            ret.compress_loss_theo = self.compute_compress_loss_theoretical(W, Pi)
+            ret.discrim_loss_theo = self.compute_discrim_loss_theoretical(W).detach()
+            ret.compress_loss_theo = self.compute_compress_loss_theoretical(W, Pi).detach()
 
         return ret
 
