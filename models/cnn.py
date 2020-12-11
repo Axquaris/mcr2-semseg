@@ -110,7 +110,8 @@ class CNN(pl.LightningModule):
             self.log('train_Z_mean', torch.mean(mcr_ret.Z_mean))
 
             if self.classifier:
-                preds = self.classifier(Z).view(labels.shape)
+                classif_out = self.classifier(Z)
+                preds = classif_out.view(labels.shape)
                 self.log('train_acc', self.accuracy(preds, labels), on_step=True, prog_bar=True)
             else:
                 preds = None
