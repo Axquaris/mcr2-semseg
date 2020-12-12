@@ -30,6 +30,9 @@ def main():
         train_dataloader = DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
         val_dataset = MnistSS(train=False, cifar_bg='bg' in args.data)
         val_dataloader = DataLoader(val_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+
+        class_labels = {0: 'background'}
+        class_labels.update({v + 1: str(v) for v in range(10)})
     else:
         raise NotImplementedError(args.data)
 
@@ -42,12 +45,12 @@ def main():
         encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="18")
     else:
         raise NotImplementedError(args.model)
-    model = cnn.CNN(encoder, 11, **args)
+    model = cnn.CNN(encoder, 11, **args, class_labels=class_labels)
 
     logger = WandbLogger(project='mcr2-semseg', config=args)
-    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10)
 
-    trainer.fit(model, train_dataloader)
+    trainer.fit(model, train_dataloader, val_dataloader)
 
 
 if __name__ == "__main__":

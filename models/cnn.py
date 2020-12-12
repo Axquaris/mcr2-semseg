@@ -37,7 +37,7 @@ def get_mnist_resnet(in_c, feat_dim, depth="10"):
 
 # TODO: generalize this to a module which utilizes generic encoders
 class CNN(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, **unused_kwargs):
         super(CNN, self).__init__()
         self.encoder = encoder
         self.num_classes = num_classes
@@ -46,6 +46,7 @@ class CNN(pl.LightningModule):
         self.task = task
         self.encode_arch = arch
         self.lr = lr
+        self.class_labels = class_labels
 
         if self.loss == 'mcr2':
             self.criterion = MaximalCodingRateReduction(num_classes)
@@ -101,7 +102,9 @@ class CNN(pl.LightningModule):
             Z = feats.transpose(0, 1).reshape(feats.shape[1], -1).T
             Y = labels.view(-1)
             mcr_ret = self.criterion(Z, Y)
-            self._agg(mcr_ret)
+            self.__ZtPiZ += mcr_ret.ZtPiZ
+            self.__Z_mean += mcr_ret.Z_mean
+            self.__num_batches += 1
 
             loss = mcr_ret.loss
             preds = self.classifier(Z).view(labels.shape) if self.classifier else None
