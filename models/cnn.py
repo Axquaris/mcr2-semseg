@@ -6,6 +6,7 @@ from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
 from models.resnet import ResNet18, ResNet10MNIST
+from models.unet import UNet
 
 
 def to_wandb_im(x):
@@ -34,6 +35,9 @@ def get_mnist_resnet(in_c, feat_dim, depth="10"):
         return ResNet10MNIST(feature_dim=feat_dim, in_c=in_c)
     else:
         return ResNet18(feature_dim=feat_dim, in_c=in_c)
+
+def get_mnist_unet(in_c, feat_dim):
+    return UNet(in_c, feat_dim)
 
 
 class CNN(pl.LightningModule):

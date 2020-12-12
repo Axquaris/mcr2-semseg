@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--es', type=int, default=10, help='num epochs (default: 10)')
     parser.add_argument('--bs', type=int, default=1000, help='batch size (default: 1000)')
 
-    parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18'], default='cnn', help='What encoder to use')
+    parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18', 'unet'], default='cnn', help='What encoder to use')
     parser.add_argument('--task', type=str, default='classify', help='semseg or classify')
     parser.add_argument('--loss', type=str, choices=['mcr2', 'ce'], default='mcr2', help='mcr2 or ce (cross-entropy)')
     parser.add_argument('--eps', type=float, default=.5, help='mcr2 eps param')
@@ -42,6 +42,10 @@ def main():
     elif args.arch == 'resnet18':
         from models import cnn
         encoder = cnn.get_mnist_resnet(in_c=im_channels, feat_dim=args.fd, depth="18")
+        model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task, encode_arch=args.arch)
+    elif args.arch == 'unet':
+        from models import cnn
+        encoder = cnn.get_mnist_unet(in_c=im_channels, feat_dim=args.fd)
         model = cnn.CNN(encoder, 11, dim_z=args.fd, loss=args.loss, task=args.task, encode_arch=args.arch)
     else:
         raise NotImplementedError(args.model)
