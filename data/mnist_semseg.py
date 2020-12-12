@@ -48,6 +48,9 @@ class MnistSS(torch.utils.data.Dataset):
             cifar10_root = join(root, 'cifar10')
             self.cifar10 = CIFAR10(cifar10_root, train=train, download=True)
 
+        self.class_labels = {0: 'background'}
+        self.class_labels.update({v + 1: str(v) for v in range(10)})
+
     def __getitem__(self, item):
         """
         Randomly inserts the MNIST images into cifar images

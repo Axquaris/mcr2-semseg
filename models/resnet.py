@@ -117,3 +117,9 @@ def ResNet18(feature_dim=512, in_c=3):
 
 def ResNet10MNIST(feature_dim=512, in_c=1):
     return ResNet(BasicBlock, [1, 1, 1, 1], feature_dim, in_c=in_c, depth="10")
+
+def get_mnist_resnet(in_c, feat_dim, depth="10"):
+    if depth == "10":
+        return ResNet10MNIST(feature_dim=feat_dim, in_c=in_c)
+    else:
+        return ResNet18(feature_dim=feat_dim, in_c=in_c)
