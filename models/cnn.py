@@ -78,10 +78,10 @@ class CNN(pl.LightningModule):
         return self.__Z_mean / self.__num_batches
 
     def forward(self, x):
-        feats = self.encoder(x)
+        z = self.encoder(x)
         if self.loss == 'mcr2':
             # Normalize to unit length
-            feats = feats / torch.norm(feats, dim=1, keepdim=True)
+            feats = z / torch.norm(z, dim=1, keepdim=True)
         return feats
 
     def training_step(self, batch, batch_idx):
