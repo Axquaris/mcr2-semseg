@@ -17,9 +17,9 @@ def main():
     parser.add_argument('--es', type=int, default=10, help='num epochs (default: 10)')
     parser.add_argument('--bs', type=int, default=1000, help='batch size (default: 1000)')
 
-    parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18'], default='cnn', help='What encoder to use')
+    parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18', 'unet'], default='cnn', help='What encoder to use')
     parser.add_argument('--task', type=str, default='classify', help='semseg or classify')
-    parser.add_argument('--loss', type=str, default='mcr2', help='mcr2 or ce (cross-entropy)')
+    parser.add_argument('--loss', type=str, choices=['mcr2', 'ce'], default='mcr2', help='mcr2 or ce (cross-entropy)')
     parser.add_argument('--eps', type=float, default=.5, help='mcr2 eps param')
     parser.add_argument('-fd', '--feat_dim', type=int, default=128, help='dimension of features (default: 128)')
     parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
@@ -45,6 +45,9 @@ def main():
         encoder = resnet.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="10")
     elif args.arch == 'resnet18':
         encoder = resnet.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="18")
+    elif args.arch == 'unet':
+        from models import cnn
+        encoder = cnn.get_mnist_unet(in_c=im_channels, feat_dim=args.feat_dim)
     else:
         raise NotImplementedError(args.model)
     model = MainModel(encoder, 11, **args, class_labels=train_dataset.class_labels)
