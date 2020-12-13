@@ -5,16 +5,18 @@ from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
 from easydict import EasyDict
-from util import to_wandb_im
+
+
+def to_wandb_im(x):
+    if len(x.shape) == 3:
+        x = x.permute(1, 2, 0)
+    return x.cpu().numpy()
 
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, lr_decay, arch, class_labels,
-                 mcr2_bg_acc_threshhold=0.5, bg_encoder=None, bg_weight=1.0, val_sets=None, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, **unused_kwargs):
         super(MainModel, self).__init__()
-        self.bg_encoder = bg_encoder
-        self.bg_weight = bg_weight
         self.encoder = encoder
         self.num_classes = num_classes
         self.feat_dim = feat_dim
@@ -22,16 +24,9 @@ class MainModel(pl.LightningModule):
         self.task = task
         self.encode_arch = arch
         self.lr = lr
-        self.lr_decay = lr_decay
         self.class_labels = class_labels
-        self.bg_criterion = None
-        self.mcr2_bg_acc_threshhold = mcr2_bg_acc_threshhold
-        self.mcr2_starts = False
-        self.val_sets = val_sets
 
-        if self.loss == 'mcr2_bg':
-            self.bg_criterion = nn.CrossEntropyLoss()
-        if self.loss == 'mcr2' or self.loss == 'mcr2_bg':
+        if self.loss == 'mcr2':
             self.criterion = MaximalCodingRateReduction(num_classes)
             self.classifier = None
             self.reset_agg()
@@ -39,8 +34,7 @@ class MainModel(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Linear(feat_dim, num_classes)
         elif self.loss == 'ce':
-            # TODO: do weighting using actually computed freqs
-            self.criterion = nn.CrossEntropyLoss()  # weight=torch.tensor([.1] + [1] * (num_classes - 1)))
+            self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
         self.accuracy = pl.metrics.Accuracy()
 
@@ -68,7 +62,6 @@ class MainModel(pl.LightningModule):
         """
         metrics = EasyDict()
         feats = self.encoder(x)
-        preds = None
 
         if self.task == 'classify':
             labels, _ = labels.view(labels.shape[0], -1).max(-1)
@@ -85,67 +78,15 @@ class MainModel(pl.LightningModule):
             self.__Z_mean += mcr_ret.Z_mean
             self.__num_batches += 1
 
-            mcr2_loss = mcr_ret.loss
+            loss = mcr_ret.loss
             preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
 
             metrics.update(
-                mcr2_loss=mcr2_loss,
                 discrim_loss=mcr_ret.discrim_loss,
                 compress_loss=mcr_ret.compress_loss,
                 ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
                 Z_mean=torch.mean(mcr_ret.Z_mean),
             )
-            loss = mcr2_loss
-        elif self.loss == 'mcr2_bg':
-            mcr2_loss = 0
-
-            if self.bg_encoder:
-                bg_logits = self.bg_encoder(x)
-            else:
-                bg_logits, feats = feats[:, :2, :, :], feats[:, 2:, :, :]
-
-            bg_pred = torch.argmax(bg_logits, 1).reshape(-1).detach()
-            bg_logits = bg_logits.transpose(0, 1).reshape(bg_logits.shape[1], -1).T
-            bg_labels = (labels.reshape(-1) == 0).type(torch.long)
-            bg_mask = bg_labels == 0
-
-            bg_acc = self.accuracy(bg_pred, bg_labels)
-            
-            bg_loss = self.bg_criterion(bg_logits, bg_labels)
-            if self.mcr2_starts:
-                Z = feats.transpose(0, 1).reshape(feats.shape[1], -1).T
-                Z = Z[bg_mask]
-                Z = Z / torch.norm(Z, dim=1, keepdim=True)
-                Y = labels.view(-1)
-                Y = Y[bg_mask]
-                
-                mcr_ret = self.criterion(Z, Y)
-                self.__ZtPiZ += mcr_ret.ZtPiZ
-                self.__Z_mean += mcr_ret.Z_mean
-                self.__num_batches += 1
-
-                mcr2_loss = mcr_ret.loss
-                if self.classifier:
-                    preds = torch.zeros(x.shape[0] * x.shape[-1] * x.shape[-2]).cuda()
-                    non_bg_preds = self.classifier(Z)
-                    preds[bg_mask] = non_bg_preds.float()
-                    preds = preds.view(x.shape[0], *x.shape[-2:])
-                    metrics.instance_acc = self.accuracy(Y, non_bg_preds)
-
-
-                metrics.update(
-                    mcr2_loss=mcr2_loss,
-                    discrim_loss=mcr_ret.discrim_loss,
-                    compress_loss=mcr_ret.compress_loss,
-                    ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
-                    Z_mean=torch.mean(mcr_ret.Z_mean),
-                )
-
-            metrics.update(
-                bg_loss=bg_loss,
-                bg_acc=bg_acc
-            )
-            loss = self.bg_weight * bg_loss + mcr2_loss
         else:
             logits = self.classifier(feats)
             loss = self.criterion(logits, labels) if labels is not None else None
@@ -160,7 +101,7 @@ class MainModel(pl.LightningModule):
             for k in metrics:
                 m = metrics[k]
                 if k in {'loss' or 'acc'}:
-                    self.log(f'{log}_{k}', m, prog_bar=True)
+                    self.log(f'{log}_{k}', m, on_step=True, prog_bar=True)
                 else:
                     self.log(f'{log}_{k}', m)
 
@@ -173,8 +114,8 @@ class MainModel(pl.LightningModule):
                             masks["ground_truth"] = {"mask_data": to_wandb_im(labels[i]), "class_labels": self.class_labels}
                         if preds is not None:
                             masks["predictions"] = {"mask_data": to_wandb_im(preds[i]), "class_labels": self.class_labels}
-                        imgs.append(wandb.Image(to_wandb_im(x[i]), masks=masks, caption=f'idx{i}'))
-                    self.logger.experiment.log({f'{log}_imgs': imgs}, commit=False)
+                        imgs.append(wandb.Image(to_wandb_im(x[i]), masks=masks))
+                    self.logger.experiment.log({f'{log}_img': imgs}, commit=False)
 
         return EasyDict(
             loss=loss,
@@ -189,7 +130,7 @@ class MainModel(pl.LightningModule):
         # labels shape (batch_size, H, W)
         x, labels = batch
         labels = torch.squeeze(labels)
-        ret = self(x, labels, log='train', log_img=(batch_idx % 50 == 10))
+        ret = self(x, labels, log='train', log_img=(batch_idx == 0))
 
         return ret.loss
 
@@ -200,27 +141,29 @@ class MainModel(pl.LightningModule):
     # TODO: --OR-- compute classifier for each validation batch?
     # TODO: try other classifiers of Z
     def on_validation_epoch_start(self):
-        if self.loss == 'mcr2' or self.loss == 'mcr2_bg':
+        if self.loss == 'mcr2':
             self.classifier = FastNearestSubspace(self.ZtPiZ, self.Z_mean,
                                                   num_classes=self.num_classes,
                                                   n_components=self.feat_dim // self.num_classes)
             self.reset_agg()
 
-    def validation_step(self, batch, batch_idx, dataloader_idx=None):
-        val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
+    def validation_step(self, batch, batch_idx):
         with torch.no_grad():
             x, labels = batch
             labels = torch.squeeze(labels)
-            ret = self(x, labels, log=f'val{val_set}', log_img=(batch_idx % 10 == 0))
-            
-            bg_val_acc = ret.metrics.bg_acc if 'bg_acc' in ret.metrics else 0.0
-            self.mcr2_starts = self.mcr2_starts or bg_val_acc >= self.mcr2_bg_acc_threshhold
+            ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
 
-            # TODO: agg over epoch
-            # TODO: confusion matrix
-        return
+        # TODO: agg over epoch
+        # TODO: confusion matrix
+        return ret.metrics
+
+    # def validation_epoch_end(self, outputs):
+        # self.classifier = FastNearestSubspace(self.ZtPiZ, self.Z_mean,
+        #                                       num_classes=self.num_classes,
+        #                                       n_components=self.feat_dim // self.num_classes)
+        # self.reset_agg()
+
+        # self.log('val_acc_epoch', self.accuracy.compute())
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.parameters(), lr=self.lr)#, weight_decay=5e-4)
-        lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
-        return [opt], [lr_sched]
+        return torch.optim.SGD(self.parameters(), lr=self.lr)
