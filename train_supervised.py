@@ -1,5 +1,5 @@
 from data.mnist_semseg import MnistSS
-from models import cnn, resnet
+from models import cnn, resnet, unet
 from models.main_model import MainModel
 
 import pytorch_lightning as pl
@@ -7,19 +7,19 @@ from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 import argparse
 from easydict import EasyDict
-
+import torch
 
 def main():
     parser = argparse.ArgumentParser(description='Supervised Learning')
     parser.add_argument('--name', type=str, default=None, help='Name of run')
 
-    parser.add_argument('--data', type=str, default='mnist', help='mnist or mnist_bg')
-    parser.add_argument('--es', type=int, default=10, help='num epochs (default: 10)')
+    parser.add_argument('--data', type=str, default='mnist_bg', help='mnist or mnist_bg')
+    parser.add_argument('--es', type=int, default=100, help='num epochs (default: 10)')
     parser.add_argument('--bs', type=int, default=1000, help='batch size (default: 1000)')
 
     parser.add_argument('--arch', type=str, choices=['cnn', 'resnet10', 'resnet18', 'unet'], default='cnn', help='What encoder to use')
     parser.add_argument('--task', type=str, default='classify', help='semseg or classify')
-    parser.add_argument('--loss', type=str, choices=['mcr2', 'ce'], default='mcr2', help='mcr2 or ce (cross-entropy)')
+    parser.add_argument('--loss', type=str, choices=['mcr2', 'ce', 'hybrid'], default='mcr2', help='')
     parser.add_argument('--eps', type=float, default=.5, help='mcr2 eps param')
     parser.add_argument('-fd', '--feat_dim', type=int, default=128, help='dimension of features (default: 128)')
     parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
@@ -28,10 +28,15 @@ def main():
 
     args = EasyDict(vars(parser.parse_args()))
 
+    torch.backends.cudnn.benchmark = True
+
     if 'mnist' in args.data:
         train_dataset = MnistSS(train=True, cifar_bg='bg' in args.data)
         val_dataset = MnistSS(train=False, cifar_bg='bg' in args.data)
-        im_channels = 1
+        if '_bg' in args.data:
+            im_channels = 3
+        else:
+            im_channels = 1
     else:
         raise NotImplementedError(args.data)
 
@@ -46,15 +51,13 @@ def main():
     elif args.arch == 'resnet18':
         encoder = resnet.get_mnist_resnet(in_c=im_channels, feat_dim=args.feat_dim, depth="18")
     elif args.arch == 'unet':
-        from models import cnn
-        encoder = cnn.get_mnist_unet(in_c=im_channels, feat_dim=args.feat_dim)
+        encoder = unet.UNet(n_channels=im_channels, feat_dim=args.feat_dim)
     else:
         raise NotImplementedError(args.model)
     model = MainModel(encoder, 11, **args, class_labels=train_dataset.class_labels)
 
-    logger = WandbLogger(project='mcr2-semseg', config=args)
+    logger = WandbLogger(project='mcr2-semseg', config=args, name=args.name)
     trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10)
-
     trainer.fit(model, train_dataloader, val_dataloader)
 
 

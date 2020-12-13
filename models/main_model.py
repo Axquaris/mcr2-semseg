@@ -79,7 +79,7 @@ class MainModel(pl.LightningModule):
             self.__num_batches += 1
 
             loss = mcr_ret.loss
-            preds = self.classifier(Z).view(x.shape).squeeze() if self.classifier else None
+            preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
 
             metrics.update(
                 discrim_loss=mcr_ret.discrim_loss,
@@ -101,7 +101,7 @@ class MainModel(pl.LightningModule):
             for k in metrics:
                 m = metrics[k]
                 if k in {'loss' or 'acc'}:
-                    self.log(f'{log}_{k}', m, on_step=True, prog_bar=True)
+                    self.log(f'{log}_{k}', m, prog_bar=True)
                 else:
                     self.log(f'{log}_{k}', m)
 
@@ -114,8 +114,8 @@ class MainModel(pl.LightningModule):
                             masks["ground_truth"] = {"mask_data": to_wandb_im(labels[i]), "class_labels": self.class_labels}
                         if preds is not None:
                             masks["predictions"] = {"mask_data": to_wandb_im(preds[i]), "class_labels": self.class_labels}
-                        imgs.append(wandb.Image(to_wandb_im(x[i]), masks=masks))
-                    self.logger.experiment.log({f'{log}_img': imgs}, commit=False)
+                        imgs.append(wandb.Image(to_wandb_im(x[i]), masks=masks, caption=f'idx{i}'))
+                    self.logger.experiment.log({f'{log}_imgs': imgs}, commit=False)
 
         return EasyDict(
             loss=loss,
@@ -130,40 +130,32 @@ class MainModel(pl.LightningModule):
         # labels shape (batch_size, H, W)
         x, labels = batch
         labels = torch.squeeze(labels)
-        ret = self(x, labels, log='train', log_img=(batch_idx == 0))
+        ret = self(x, labels, log='train', log_img=(batch_idx % 50 == 10))
 
         return ret.loss
 
     def training_epoch_end(self, outputs):
+        ...
+
+    # TODO: might need to re-compute classifier over validation epoch
+    # TODO: --OR-- compute classifier for each validation batch?
+    # TODO: try other classifiers of Z
+    def on_validation_epoch_start(self):
         if self.loss == 'mcr2':
             self.classifier = FastNearestSubspace(self.ZtPiZ, self.Z_mean,
                                                   num_classes=self.num_classes,
                                                   n_components=self.feat_dim // self.num_classes)
             self.reset_agg()
 
-    # TODO: might need to re-compute classifier over validation epoch
-    # TODO: --OR-- compute classifier for each validation batch?
-    # TODO: try other classifiers of Z
-    # def on_validation_epoch_end(self):
-    #     self.classifier = None
-    #     self.reset_agg()
-
     def validation_step(self, batch, batch_idx):
-        x, labels = batch
-        labels = torch.squeeze(labels)
-        ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
+        with torch.no_grad():
+            x, labels = batch
+            labels = torch.squeeze(labels)
+            ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
 
-        # TODO: agg over epoch
-        # TODO: confusion matrix
-        return ret.metrics
-
-    # def validation_epoch_end(self, outputs):
-        # self.classifier = FastNearestSubspace(self.ZtPiZ, self.Z_mean,
-        #                                       num_classes=self.num_classes,
-        #                                       n_components=self.feat_dim // self.num_classes)
-        # self.reset_agg()
-
-        # self.log('val_acc_epoch', self.accuracy.compute())
+            # TODO: agg over epoch
+            # TODO: confusion matrix
+        return
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
