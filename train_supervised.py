@@ -1,4 +1,5 @@
 from data.mnist_semseg import MnistSS
+from data.bdd100k_semseg import BddSS
 from models import cnn, resnet, unet
 from models.main_model import MainModel
 
@@ -27,6 +28,8 @@ def main():
     parser.add_argument('--debug', action='store_true', default=False)
 
     args = EasyDict(vars(parser.parse_args()))
+    for k in args.keys():
+        args[k] = args[k].tolowercase()
 
     torch.backends.cudnn.benchmark = True
 
@@ -37,6 +40,10 @@ def main():
             im_channels = 3
         else:
             im_channels = 1
+    elif 'bdd' in args.data:
+        train_dataset = BddSS(train=True)
+        val_dataset = BddSS(train=False)
+        im_channels = 3
     else:
         raise NotImplementedError(args.data)
 

@@ -1,6 +1,11 @@
 # Multi-Domain Semantic Segmentation via the Principle of Rate Reduction
 TODO: Tune optimizer type, lr, and scheduling (combine with below for auto-tuner?)
+
 TODO: Auto run ending conditions: large val vs train acc gap, stagnating loss or acc
+
+TODO: cosine similarity of dataset samples
+
+TODO: how can we measure the sufficiency of z dimension? Might help in understanding 
 
 ## Experiments & Reports
 

@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Data zips
+/data/bdd100k_labels20_box_track.zip
+/data/bdd100k_labels_detection20.zip
+/data/bdd100k_labels_release.zip
+/data/bdd100k_seg.zip
