@@ -15,7 +15,7 @@ def to_wandb_im(x):
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, mcr2_bg_acc_threshhold=0.95, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, mcr2_bg_acc_threshhold=0.5, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
         super(MainModel, self).__init__()
         self.bg_encoder = bg_encoder
         self.bg_weight = bg_weight
@@ -104,20 +104,21 @@ class MainModel(pl.LightningModule):
                 bg_logits = self.bg_encoder(x)
             else:
                 bg_logits, feats = feats[:, :2, :, :], feats[:, 2:, :, :]
-
-            bg_mask = torch.argmax(bg_logits, 1).reshape(-1).detach()
+            
+            bg_pred = torch.argmax(bg_logits, 1).reshape(-1).detach()
             bg_logits = bg_logits.transpose(0, 1).reshape(bg_logits.shape[1], -1).T
             bg_labels = (labels.reshape(-1) == 0).type(torch.long)
-            bg_acc = self.accuracy(bg_mask, bg_labels)
+            bg_mask = bg_labels == 0
+
+            bg_acc = self.accuracy(bg_pred, bg_labels)
             
             bg_loss = self.bg_criterion(bg_logits, bg_labels)
-
             if self.mcr2_starts:
                 Z = feats.transpose(0, 1).reshape(feats.shape[1], -1).T
-                Z = Z[bg_mask == 1]
+                Z = Z[bg_mask]
                 Z = Z / torch.norm(Z, dim=1, keepdim=True)
                 Y = labels.view(-1)
-                Y = Y[bg_mask == 1]
+                Y = Y[bg_mask]
                 
                 mcr_ret = self.criterion(Z, Y)
                 self.__ZtPiZ += mcr_ret.ZtPiZ
@@ -125,7 +126,13 @@ class MainModel(pl.LightningModule):
                 self.__num_batches += 1
 
                 mcr2_loss = mcr_ret.loss
-                preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
+                if self.classifier:
+                    preds = torch.zeros(x.shape[0] * x.shape[-1] * x.shape[-2]).cuda()
+                    non_bg_preds = self.classifier(Z)
+                    preds[bg_mask] = non_bg_preds.float()
+                    preds = preds.view(x.shape[0], *x.shape[-2:])
+                    metrics.instance_acc = self.accuracy(Y, non_bg_preds)
+
 
                 metrics.update(
                     mcr2_loss = mcr2_loss,
@@ -207,7 +214,10 @@ class MainModel(pl.LightningModule):
             ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
             
             bg_val_acc = ret.metrics.bg_acc if 'bg_acc' in ret.metrics else 0.0
+            print("flush")
+            print("setting mcr2")
             self.mcr2_starts = self.mcr2_starts or bg_val_acc >= self.mcr2_bg_acc_threshhold
+            print("mcr2 start?", self.mcr2_starts)
 
             # TODO: agg over epoch
             # TODO: confusion matrix
