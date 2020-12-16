@@ -15,8 +15,10 @@ def to_wandb_im(x):
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, mcr2_bg_acc_threshhold=0.95, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
         super(MainModel, self).__init__()
+        self.bg_encoder = bg_encoder
+        self.bg_weight = bg_weight
         self.encoder = encoder
         self.num_classes = num_classes
         self.feat_dim = feat_dim
@@ -25,8 +27,13 @@ class MainModel(pl.LightningModule):
         self.encode_arch = arch
         self.lr = lr
         self.class_labels = class_labels
+        self.bg_criterion = None
+        self.mcr2_bg_acc_threshhold = mcr2_bg_acc_threshhold
+        self.mcr2_starts = False
 
-        if self.loss == 'mcr2':
+        if self.loss == 'mcr2_bg':
+            self.bg_criterion = nn.CrossEntropyLoss()
+        if self.loss == 'mcr2' or self.loss == 'mcr2_bg':
             self.criterion = MaximalCodingRateReduction(num_classes)
             self.classifier = None
             self.reset_agg()
@@ -62,6 +69,7 @@ class MainModel(pl.LightningModule):
         """
         metrics = EasyDict()
         feats = self.encoder(x)
+        preds = None
 
         if self.task == 'classify':
             labels, _ = labels.view(labels.shape[0], -1).max(-1)
@@ -78,7 +86,7 @@ class MainModel(pl.LightningModule):
             self.__Z_mean += mcr_ret.Z_mean
             self.__num_batches += 1
 
-            loss = mcr_ret.loss
+            mrc2_loss = mcr_ret.loss
             preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
 
             metrics.update(
@@ -87,6 +95,48 @@ class MainModel(pl.LightningModule):
                 ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
                 Z_mean=torch.mean(mcr_ret.Z_mean),
             )
+        elif self.loss == 'mcr2_bg':
+            mcr2_loss = 0
+
+            if self.bg_encoder:
+                bg_logits = self.bg_encoder(x)
+            else:
+                bg_logits, feats = feats[:, :2, :, :], feats[:, 2:, :, :]
+
+            bg_mask = torch.argmax(bg_logits, 1).reshape(-1).detach()
+            bg_logits = bg_logits.transpose(0, 1).reshape(bg_logits.shape[1], -1).T
+            bg_labels = (labels.reshape(-1) == 0).type(torch.long)
+            bg_acc = self.accuracy(bg_mask, bg_labels)
+            
+            bg_loss = self.bg_criterion(bg_logits, bg_labels)
+
+            if self.mcr2_starts:
+                Z = feats.transpose(0, 1).reshape(feats.shape[1], -1).T
+                Z = Z[bg_mask == 1]
+                Z = Z / torch.norm(Z, dim=1, keepdim=True)
+                Y = labels.view(-1)
+                Y = Y[bg_mask == 1]
+                
+                mcr_ret = self.criterion(Z, Y)
+                self.__ZtPiZ += mcr_ret.ZtPiZ
+                self.__Z_mean += mcr_ret.Z_mean
+                self.__num_batches += 1
+
+                mrc2_loss = mcr_ret.loss
+                preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
+
+                metrics.update(
+                    discrim_loss=mcr_ret.discrim_loss,
+                    compress_loss=mcr_ret.compress_loss,
+                    ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
+                    Z_mean=torch.mean(mcr_ret.Z_mean),
+                )
+
+            metrics.update(
+                bg_loss=bg_loss,
+                bg_acc=bg_acc
+            )
+            loss = self.bg_weight * bg_loss + mcr2_loss
         else:
             logits = self.classifier(feats)
             loss = self.criterion(logits, labels) if labels is not None else None
@@ -152,6 +202,9 @@ class MainModel(pl.LightningModule):
             x, labels = batch
             labels = torch.squeeze(labels)
             ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
+            
+            bg_val_acc = ret.metrics.bg_acc if 'bg_acc' in ret.metrics else 0.0
+            self.mcr2_starts = self.mcr2_starts or bg_val_acc >= self.mcr2_bg_acc_threshhold
 
             # TODO: agg over epoch
             # TODO: confusion matrix
