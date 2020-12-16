@@ -33,8 +33,6 @@ def main():
         if type(args[k]) == str:
             args[k] = args[k].lower()
 
-    torch.backends.cudnn.benchmark = True
-
     if 'mnist' in args.data:
         train_dataset = MnistSS(train=True, cifar_bg='bg' in args.data)
         val_dataset = MnistSS(train=False, cifar_bg='bg' in args.data)
@@ -74,8 +72,14 @@ def main():
     model = MainModel(encoder, 11, **args, class_labels=train_dataset.class_labels, bg_encoder=bg_encoder)
 
     logger = WandbLogger(project='mcr2-semseg', config=args, name=args.name)
-    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10)
+    checkpointer = pl.callbacks.ModelCheckpoint(monitor='val_acc', save_top_k=1, dirpath=logger.experiment.dir, prefix='model')
+    early_stopper = pl.callbacks.EarlyStopping(monitor='val_acc', min_delta=.008, patience=5)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10,
+                         auto_lr_find=True if args.lr == -1 else False, benchmark=True, terminate_on_nan=True,
+                         callbacks=[checkpointer, early_stopper])
     trainer.fit(model, train_dataloader, val_dataloader)
+
+    model.val
 
 
 if __name__ == "__main__":

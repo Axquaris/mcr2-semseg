@@ -110,7 +110,7 @@ class BddSS(torch.utils.data.Dataset):
         self._attr_to_labels = {k: {l: i for i, l in enumerate(attr_labels[k])} for k in attr_labels}
         self.attr_labels =     {k: {i: l for i, l in enumerate(attr_labels[k])} for k in attr_labels}
 
-        classes = ["bike", "bus", "car", "motor", "person", "rider",
+        classes = ["bicycle", "bus", "car", "motorcycle", "person", "rider",
                    "traffic light", "traffic sign", "train", "truck"]
         # number class labels
         label_names = [l.name for l in labels]
