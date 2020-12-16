@@ -14,7 +14,7 @@ def main():
     parser = argparse.ArgumentParser(description='Supervised Learning')
     parser.add_argument('--name', type=str, default=None, help='Name of run')
 
-    parser.add_argument('--data', type=str, default='mnist_bg', help='mnist or mnist_bg')
+    parser.add_argument('--data', type=str, default='mnist_bg', help='mnist, mnist_bg, or bdd')
     parser.add_argument('--es', type=int, default=100, help='num epochs (default: 10)')
     parser.add_argument('--bs', type=int, default=1000, help='batch size (default: 1000)')
 
@@ -28,8 +28,6 @@ def main():
     parser.add_argument('--debug', action='store_true', default=False)
 
     args = EasyDict(vars(parser.parse_args()))
-    for k in args.keys():
-        args[k] = args[k].tolowercase()
 
     torch.backends.cudnn.benchmark = True
 
