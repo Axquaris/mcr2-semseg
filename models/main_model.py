@@ -86,15 +86,17 @@ class MainModel(pl.LightningModule):
             self.__Z_mean += mcr_ret.Z_mean
             self.__num_batches += 1
 
-            mrc2_loss = mcr_ret.loss
+            mcr2_loss = mcr_ret.loss
             preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
 
             metrics.update(
+                mcr2_loss=mcr2_loss,
                 discrim_loss=mcr_ret.discrim_loss,
                 compress_loss=mcr_ret.compress_loss,
                 ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
                 Z_mean=torch.mean(mcr_ret.Z_mean),
             )
+            loss = mcr2_loss
         elif self.loss == 'mcr2_bg':
             mcr2_loss = 0
 
@@ -122,10 +124,11 @@ class MainModel(pl.LightningModule):
                 self.__Z_mean += mcr_ret.Z_mean
                 self.__num_batches += 1
 
-                mrc2_loss = mcr_ret.loss
+                mcr2_loss = mcr_ret.loss
                 preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
 
                 metrics.update(
+                    mcr2_loss = mcr2_loss,
                     discrim_loss=mcr_ret.discrim_loss,
                     compress_loss=mcr_ret.compress_loss,
                     ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
@@ -191,7 +194,7 @@ class MainModel(pl.LightningModule):
     # TODO: --OR-- compute classifier for each validation batch?
     # TODO: try other classifiers of Z
     def on_validation_epoch_start(self):
-        if self.loss == 'mcr2':
+        if self.loss == 'mcr2' or self.loss == 'mcr2_bg':
             self.classifier = FastNearestSubspace(self.ZtPiZ, self.Z_mean,
                                                   num_classes=self.num_classes,
                                                   n_components=self.feat_dim // self.num_classes)
