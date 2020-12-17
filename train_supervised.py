@@ -75,7 +75,7 @@ def main():
     model = MainModel(encoder, 11, **args, class_labels=train_dataset.class_labels, bg_encoder=bg_encoder)
 
     logger = WandbLogger(project='mcr2-semseg', config=args, name=args.name, entity=args.entity)
-    checkpointer = pl.callbacks.ModelCheckpoint(monitor='val_acc', save_top_k=1, dirpath=logger.experiment.dir, prefix='model')
+    checkpointer = pl.callbacks.ModelCheckpoint(dirpath=logger.experiment.dir, prefix='model', period=5, save_last=True)
     trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10,
                          auto_lr_find=args.lr == 0, benchmark=True, terminate_on_nan=True,
                          callbacks=[checkpointer, early_stopper], limit_train_batches=50, limit_val_batches=10)
