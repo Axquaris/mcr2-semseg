@@ -228,10 +228,7 @@ class MainModel(pl.LightningModule):
             ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
             
             bg_val_acc = ret.metrics.bg_acc if 'bg_acc' in ret.metrics else 0.0
-            print("flush")
-            print("setting mcr2")
             self.mcr2_starts = self.mcr2_starts or bg_val_acc >= self.mcr2_bg_acc_threshhold
-            print("mcr2 start?", self.mcr2_starts)
 
             # TODO: agg over epoch
             # TODO: confusion matrix
