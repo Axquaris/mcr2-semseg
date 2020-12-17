@@ -55,9 +55,10 @@ def main():
     else:
         raise NotImplementedError(args.model)
     model = MainModel(encoder, 11, **args, class_labels=train_dataset.class_labels)
-
+    checkpointer = pl.callbacks.ModelCheckpoint(monitor='val_acc', save_top_k=1, dirpath=logger.experiment.dir, prefix='model')
     logger = WandbLogger(project='mcr2-semseg', config=args, name=args.name)
-    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.es, logger=logger, auto_select_gpus=True, log_every_n_steps=10,
+                            callbacks=[checkpointer])
     trainer.fit(model, train_dataloader, val_dataloader)
 
 
