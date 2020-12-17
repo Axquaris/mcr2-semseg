@@ -46,6 +46,7 @@ class MainModel(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()  # weight=torch.tensor([.1] + [1] * (num_classes - 1)))
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
         self.accuracy = pl.metrics.Accuracy()
+        self.save_hyperparameters("encoder", 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'lr_decay', 'arch', 'mcr2_bg_acc_threshhold', 'bg_encoder', 'bg_weight')
 
     def reset_agg(self):
         self.__ZtPiZ = torch.zeros(self.num_classes, self.feat_dim, self.feat_dim).cuda()
