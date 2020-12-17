@@ -40,9 +40,10 @@ class DigitSS(torch.utils.data.Dataset):
 
     def _get_digit(self, item):
         subset = self.digit_sets[item % len(self.digit_sets)]
+        data = subset[item // len(self.digit_sets) % len(subset)]
         if isinstance(subset, QMNIST):
-            return subset[item // 3][0]  # take only class label for now
-        return subset[item // 3]
+            return data[0], data[1][0]  # take only class label for now
+        return data
 
     def __getitem__(self, item):
         """
@@ -52,12 +53,12 @@ class DigitSS(torch.utils.data.Dataset):
         """
         digit_im, label = self._get_digit(item)
         # digit_im = transforms.Resize(size=(28, 28))(digit_im)
-        # digit_im = transforms.RandomCrop(size=(28, 28), pad_if_needed=True)(digit_im)
+        digit_im = transforms.RandomCrop(size=(28, 28), pad_if_needed=True)(digit_im)
         digit_im = transforms.ToTensor()(digit_im)
 
-        mask = digit_im.clone()
-        mask[mask < .3] = -1  # background label
-        mask[mask >= .3] = label
+        mask = torch.zeros_like(digit_im, dtype=torch.long)
+        mask[digit_im < .3] = -1  # background label
+        mask[digit_im >= .3] = label
 
         if self.cifar_bg:
             bg_im, _ = self.bg[item % len(self.bg)]
@@ -69,8 +70,8 @@ class DigitSS(torch.utils.data.Dataset):
         else:
             im = DigitSS.norm_1c(digit_im)
 
-        return im, (mask + 1).type(torch.long)
+        return im, (mask + 1)
 
     def __len__(self):
-        return min([len(subset) for subset in self.digit_sets])
+        return max([len(subset) for subset in self.digit_sets]) * len(self.digit_sets)
 

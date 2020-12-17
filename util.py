@@ -1,4 +1,4 @@
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -21,6 +21,12 @@ def plot_data(X):
             ax[i, j].get_yaxis().set_visible(False)
     f.subplots_adjust(hspace=0.1)  # No horizontal space between subplots
     f.subplots_adjust(wspace=0)
+
+
+def to_wandb_im(x):
+    if len(x.shape) == 3:
+        x = x.permute(1, 2, 0)
+    return x.cpu().numpy()
 
 
 def cos_dist_matrix(model, dataloader):

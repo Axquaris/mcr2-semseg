@@ -20,6 +20,9 @@ bg perfectly
 Expect that the learned Z subspaces will quickly differentiate BG from the rest and then only have notably
 large loss magnitudes for the other class samples. Lets try proving this experimentally / mathematically?
 
+
+LR CE: .003
+LR MCR: .
 ## Scratch Space
 ```python
 def m(*d):

@@ -5,17 +5,13 @@ from mcr2_loss import MaximalCodingRateReduction
 import pytorch_lightning as pl
 from models.classifiers import *
 from easydict import EasyDict
-
-
-def to_wandb_im(x):
-    if len(x.shape) == 3:
-        x = x.permute(1, 2, 0)
-    return x.cpu().numpy()
+from util import to_wandb_im
 
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, mcr2_bg_acc_threshhold=0.5, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, lr_decay, arch, class_labels,
+                 mcr2_bg_acc_threshhold=0.5, bg_encoder=None, bg_weight=1.0, val_sets=None, **unused_kwargs):
         super(MainModel, self).__init__()
         self.bg_encoder = bg_encoder
         self.bg_weight = bg_weight
@@ -31,6 +27,7 @@ class MainModel(pl.LightningModule):
         self.bg_criterion = None
         self.mcr2_bg_acc_threshhold = mcr2_bg_acc_threshhold
         self.mcr2_starts = False
+        self.val_sets = val_sets
 
         if self.loss == 'mcr2_bg':
             self.bg_criterion = nn.CrossEntropyLoss()
@@ -137,7 +134,7 @@ class MainModel(pl.LightningModule):
 
 
                 metrics.update(
-                    mcr2_loss = mcr2_loss,
+                    mcr2_loss=mcr2_loss,
                     discrim_loss=mcr_ret.discrim_loss,
                     compress_loss=mcr_ret.compress_loss,
                     ZtPiZ_mean=torch.mean(mcr_ret.ZtPiZ),
@@ -209,11 +206,12 @@ class MainModel(pl.LightningModule):
                                                   n_components=self.feat_dim // self.num_classes)
             self.reset_agg()
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
+        val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
         with torch.no_grad():
             x, labels = batch
             labels = torch.squeeze(labels)
-            ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
+            ret = self(x, labels, log=f'val{val_set}', log_img=(batch_idx % 10 == 0))
             
             bg_val_acc = ret.metrics.bg_acc if 'bg_acc' in ret.metrics else 0.0
             self.mcr2_starts = self.mcr2_starts or bg_val_acc >= self.mcr2_bg_acc_threshhold
@@ -223,6 +221,6 @@ class MainModel(pl.LightningModule):
         return
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.parameters(), lr=self.lr)
+        opt = torch.optim.Adam(self.parameters(), lr=self.lr)#, weight_decay=5e-4)
         lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
         return [opt], [lr_sched]

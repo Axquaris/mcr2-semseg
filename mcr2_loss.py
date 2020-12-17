@@ -118,7 +118,7 @@ def label_to_membership(targets, num_classes=None):
         Pi[k, j, j] = 1.
     return Pi
 
-if __name__ == '__main__':
+def main():
     # Verify optimized empirical computation against original theoretical implementation
     from itertools import product
 
@@ -159,3 +159,6 @@ if __name__ == '__main__':
     ns10000 dz128 eps0.5 nc10	 d_err1.72e-06	 c_err9.54e-07
     """
 
+if __name__ == '__main__':
+    import cProfile
+    cProfile.run('main()')
