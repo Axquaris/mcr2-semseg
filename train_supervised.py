@@ -79,8 +79,6 @@ def main():
                          callbacks=[checkpointer, early_stopper])
     trainer.fit(model, train_dataloader, val_dataloader)
 
-    model.val
-
 
 if __name__ == "__main__":
     main()
