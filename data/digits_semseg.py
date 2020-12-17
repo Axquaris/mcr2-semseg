@@ -10,7 +10,7 @@ from torchvision import transforms
 import torch
 
 
-class MnistSS(torch.utils.data.Dataset):
+class DigitSS(torch.utils.data.Dataset):
     """
     Object to sample the data that we can segment. The sample function combines data
     from MNIST and CIFAR and overlaps them
@@ -23,6 +23,9 @@ class MnistSS(torch.utils.data.Dataset):
         self.cifar_bg = cifar_bg
 
         mnist_root = join(root, 'mnist')
+        self.mnist = MNIST(mnist_root, train=train, download=True)
+
+        usps_root = join(root, 'mnist')
         self.mnist = MNIST(mnist_root, train=train, download=True)
 
         if cifar_bg:

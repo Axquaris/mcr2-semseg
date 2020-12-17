@@ -15,7 +15,7 @@ def to_wandb_im(x):
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, mcr2_bg_acc_threshhold=0.95, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, lr_decay, arch, class_labels, mcr2_bg_acc_threshhold=0.95, bg_encoder=None, bg_weight=1.0, **unused_kwargs):
         super(MainModel, self).__init__()
         self.bg_encoder = bg_encoder
         self.bg_weight = bg_weight
@@ -26,6 +26,7 @@ class MainModel(pl.LightningModule):
         self.task = task
         self.encode_arch = arch
         self.lr = lr
+        self.lr_decay = lr_decay
         self.class_labels = class_labels
         self.bg_criterion = None
         self.mcr2_bg_acc_threshhold = mcr2_bg_acc_threshhold
@@ -41,7 +42,8 @@ class MainModel(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Linear(feat_dim, num_classes)
         elif self.loss == 'ce':
-            self.criterion = nn.CrossEntropyLoss()
+            # TODO: do weighting using actually computed freqs
+            self.criterion = nn.CrossEntropyLoss()  # weight=torch.tensor([.1] + [1] * (num_classes - 1)))
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
         self.accuracy = pl.metrics.Accuracy()
 
@@ -158,7 +160,7 @@ class MainModel(pl.LightningModule):
             if log_img:
                 if self.task == 'semseg':
                     imgs = []
-                    for i in range(10):
+                    for i in range(1):
                         masks = {}
                         if labels is not None:
                             masks["ground_truth"] = {"mask_data": to_wandb_im(labels[i]), "class_labels": self.class_labels}
@@ -178,7 +180,7 @@ class MainModel(pl.LightningModule):
         # x      shape (batch_size, C,     H, W)
         # feats  shape (batch_size, feat_dim, H, W)
         # labels shape (batch_size, H, W)
-        x, labels = batch
+        x, labels, _ = batch
         labels = torch.squeeze(labels)
         ret = self(x, labels, log='train', log_img=(batch_idx % 50 == 10))
 
@@ -199,7 +201,7 @@ class MainModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         with torch.no_grad():
-            x, labels = batch
+            x, labels, _ = batch
             labels = torch.squeeze(labels)
             ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
             
@@ -211,4 +213,6 @@ class MainModel(pl.LightningModule):
         return
 
     def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr=self.lr)
+        opt = torch.optim.Adam(self.parameters(), lr=self.lr)
+        lr_sched = torch.optim.lr_scheduler.ExponentialLR(optimizer=opt, gamma=self.lr_decay)
+        return [opt], [lr_sched]
