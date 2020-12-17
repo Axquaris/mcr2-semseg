@@ -110,12 +110,12 @@ class BddSS(torch.utils.data.Dataset):
         self._attr_to_labels = {k: {l: i for i, l in enumerate(attr_labels[k])} for k in attr_labels}
         self.attr_labels =     {k: {i: l for i, l in enumerate(attr_labels[k])} for k in attr_labels}
 
-        classes = ["bicycle", "bus", "car", "motorcycle", "person", "rider",
+        classes = ["background", "bicycle", "bus", "car", "motorcycle", "person", "rider",
                    "traffic light", "traffic sign", "train", "truck"]
         # number class labels
         label_names = [l.name for l in labels]
-        self._class_to_colors = {c: torch.tensor(labels[label_names.index(c)].color) for c in classes}
-        self.class_labels =     {i+1: c for i, c in enumerate(classes)}  # 0 is for background
+        self._class_to_colors = {c: torch.tensor(labels[label_names.index(c)].color) for c in classes[1:]}
+        self.class_labels =     {i: c for i, c in enumerate(classes)}  # 0 is for background
 
         self._classes_encountered = {l.name: 0 for l in labels}
 
@@ -154,17 +154,19 @@ class BddSS(torch.utils.data.Dataset):
         with open(label_pth, 'rb') as f:
             color_label = Image.open(f)
             color_label = transforms.ToTensor()(color_label) * 255  # Saved data normalized to [0, 1]
-            color_label = color_label.type(torch.long).permute(1, 2, 0)
-            label = torch.zeros_like(color_label)
+            color_label = color_label.type(torch.long)
+            label = torch.zeros(color_label.shape[1:], dtype=torch.long)
 
-            for i, name in enumerate(self._class_to_colors):
+            for idx, name in enumerate(self._class_to_colors):
+                if idx == 0:
+                    pass  # 0 is for background
                 color = self._class_to_colors[name]
-                idx = i + 1  # 0 is for background
 
                 self._classes_encountered[name] += 1
 
-                mask = (color_label == color.unsqueeze(0).unsqueeze(0)).all(-1)
+                mask = (color_label == color.unsqueeze(-1).unsqueeze(-1)).all(0)
                 label[mask] = idx
+            # label = label.type(torch.long)
 
         attr = torch.tensor([self._attr_to_labels[category][attr[category]] for category in attr])
 
