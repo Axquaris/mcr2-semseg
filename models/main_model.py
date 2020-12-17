@@ -38,6 +38,7 @@ class MainModel(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
         self.accuracy = pl.metrics.Accuracy()
+        self.save_hyperparameters("encoder", 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'lr_decay', 'arch', 'mcr2_bg_acc_threshhold', 'bg_encoder', 'bg_weight')
 
         self.save_hyperparameters('encoder', 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'arch', 'val_sets')
 
