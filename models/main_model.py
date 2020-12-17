@@ -24,7 +24,7 @@ class MainModel(pl.LightningModule):
         self.task = task
         self.encode_arch = arch
         self.lr = lr
-        self.class_labels = class_labels
+        self.class_labels = dict(class_labels)
         self.val_sets = val_sets
 
         if self.loss == 'mcr2':
@@ -38,6 +38,8 @@ class MainModel(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()
             self.classifier = nn.Conv2d(feat_dim, num_classes, kernel_size=1, padding=0)
         self.accuracy = pl.metrics.Accuracy()
+
+        self.save_hyperparameters('encoder', 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'arch', 'val_sets')
 
     def reset_agg(self):
         self.__ZtPiZ = torch.zeros(self.num_classes, self.feat_dim, self.feat_dim).cuda()
