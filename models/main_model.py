@@ -15,7 +15,7 @@ def to_wandb_im(x):
 
 # TODO: generalize this to a module which utilizes generic encoders
 class MainModel(pl.LightningModule):
-    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, **unused_kwargs):
+    def __init__(self, encoder, num_classes, feat_dim, loss, task, lr, arch, class_labels, val_sets, **unused_kwargs):
         super(MainModel, self).__init__()
         self.encoder = encoder
         self.num_classes = num_classes
@@ -25,6 +25,7 @@ class MainModel(pl.LightningModule):
         self.encode_arch = arch
         self.lr = lr
         self.class_labels = class_labels
+        self.val_sets = val_sets
 
         if self.loss == 'mcr2':
             self.criterion = MaximalCodingRateReduction(num_classes)
@@ -79,7 +80,7 @@ class MainModel(pl.LightningModule):
             self.__num_batches += 1
 
             loss = mcr_ret.loss
-            preds = self.classifier(Z).view(x.shape[0], *x.shape[-2:]) if self.classifier else None
+            preds = self.classifier(Z) if self.classifier else None
 
             metrics.update(
                 discrim_loss=mcr_ret.discrim_loss,
@@ -147,11 +148,12 @@ class MainModel(pl.LightningModule):
                                                   n_components=self.feat_dim // self.num_classes)
             self.reset_agg()
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
+        val_set = '' if dataloader_idx is None else f'_{self.val_sets[dataloader_idx]}'
         with torch.no_grad():
             x, labels = batch
             labels = torch.squeeze(labels)
-            ret = self(x, labels, log='val', log_img=(batch_idx % 10 == 0))
+            ret = self(x, labels, log=f'val{val_set}', log_img=(batch_idx % 10 == 0))
 
         # TODO: agg over epoch
         # TODO: confusion matrix
