@@ -42,8 +42,8 @@ def main(batch_size, num_samples, checkpoint_path, outfile, data):
         all_Z.append(Z)
         all_Y.append(Y)
 
-    Z = torch.cat(all_Z)[:num_samples]
-    Y = torch.cat(all_Y)[:num_samples]
+    Z = torch.cat(all_Z)
+    Y = torch.cat(all_Y)
 
     samples_per_class_max = num_samples // num_classes
     samples_per_class = []
@@ -51,7 +51,7 @@ def main(batch_size, num_samples, checkpoint_path, outfile, data):
     for i in range(num_classes):
         num_i = len(all_idx[Y == i])
         samples_per_class.append(num_i)
-        print(samples_per_class)
+    print(samples_per_class)
     
     samples_per_class = min(samples_per_class_max, min(samples_per_class))
     kept_idx = []
