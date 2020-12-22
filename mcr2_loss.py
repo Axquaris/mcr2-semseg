@@ -122,7 +122,7 @@ def main():
     # Verify optimized empirical computation against original theoretical implementation
     from itertools import product
 
-    num_samples = [10, 100, 1000]
+    num_samples = [10, 100, 1000, 10000]
     dim_z = [16, 64, 128]
     eps = [.5]
     num_classes = [10]
@@ -148,15 +148,8 @@ def main():
 
     """
     RESULTS:
-    ns100 dz16 eps0.5 nc10  	 d_err1.91e-07	 c_err1.43e-07
-    ns100 dz64 eps0.5 nc10  	 d_err5.72e-07	 c_err3.81e-07
-    ns100 dz128 eps0.5 nc10 	 d_err9.54e-07	 c_err7.63e-07
-    ns1000 dz16 eps0.5 nc10 	 d_err2.38e-07	 c_err3.34e-07
-    ns1000 dz64 eps0.5 nc10      d_err1.05e-06	 c_err7.63e-07
-    ns1000 dz128 eps0.5 nc10	 d_err1.91e-06	 c_err9.54e-07
-    ns10000 dz16 eps0.5 nc10	 d_err5.25e-07	 c_err3.81e-07
-    ns10000 dz64 eps0.5 nc10	 d_err1.62e-06	 c_err6.68e-07
-    ns10000 dz128 eps0.5 nc10	 d_err1.72e-06	 c_err9.54e-07
+    exact same calculation, but faster
+    
     """
 
 if __name__ == '__main__':

@@ -2,15 +2,10 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 import torch, argparse, pickle
-import numpy as np
-import matplotlib.pyplot as plt
 from data.digit_semseg import DigitSS
 from easydict import EasyDict
 from torch.utils.data import DataLoader, Subset
 from models.main_model import MainModel
-from models import unet
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning import Trainer
 
 
 def main(batch_size, num_samples, checkpoint_path, outfile, data):
@@ -42,8 +37,8 @@ def main(batch_size, num_samples, checkpoint_path, outfile, data):
         all_Z.append(Z)
         all_Y.append(Y)
 
-    Z = torch.cat(all_Z)[:num_samples]
-    Y = torch.cat(all_Y)[:num_samples]
+    Z = torch.cat(all_Z)#[:num_samples]
+    Y = torch.cat(all_Y)#[:num_samples]
 
     samples_per_class_max = num_samples // num_classes
     samples_per_class = []
@@ -77,7 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--data', '-d', choices=['mnist', 'mnist_bg'], default='mnist_bg')
     parser.add_argument('--batch_size', '-bs', type=int, default=500)
     parser.add_argument('--num_samples', '-n', type=int, default=25000)
-    parser.add_argument('--checkpoint_path', '-cpt', type=str, default='/home/nathan_miller23/mcr2-semseg/wandb/run-20201217_140553-z18wzan6/files/model-epoch=28.ckpt')
+    parser.add_argument('--checkpoint_path', '-cpt', type=str, default='ckpts\ce_digits_clasify.ckpt')
     parser.add_argument('--outfile', '-o', type=str, default='cosine_sim.pkl')
     args = vars(parser.parse_args())
     main(**args)
