@@ -1,4 +1,9 @@
 # Multi-Domain Semantic Segmentation via the Principle of Rate Reduction
+[Presentation](https://docs.google.com/presentation/d/16jhEIYlq5gfa9y-dGH3DhlT9N-pKZ9w5CmFx15JuLDg/edit#slide=id.p)
+[Conference-Style Report](https://github.com/Axquaris/mcr2-semseg/blob/main/mcr2-semseg.pdf)
+
+
+<!--
 TODO: Tune optimizer type, lr, and scheduling (combine with below for auto-tuner?)
 
 TODO: Auto run ending conditions: large val vs train acc gap, stagnating loss or acc
@@ -27,3 +32,4 @@ def m(*d):
     for i in d: n *=i
     return torch.arange(n).view(*d) + 0.
 ```
+-->
