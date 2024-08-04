@@ -40,8 +40,6 @@ class MainModel(pl.LightningModule):
         self.accuracy = pl.metrics.Accuracy()
         self.save_hyperparameters("encoder", 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'lr_decay', 'arch', 'mcr2_bg_acc_threshhold', 'bg_encoder', 'bg_weight')
 
-        self.save_hyperparameters('encoder', 'num_classes', 'feat_dim', 'loss', 'task', 'lr', 'arch', 'val_sets')
-
     def reset_agg(self):
         self.__ZtPiZ = torch.zeros(self.num_classes, self.feat_dim, self.feat_dim).cuda()
         self.__Z_mean = torch.zeros(self.feat_dim).cuda()
